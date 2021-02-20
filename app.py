@@ -110,28 +110,28 @@ def index():
 def venues():
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
+  data = []
+  current_time = datetime.now()
+  areas = db.session.query(Venue.city,Venue.state).group_by(Venue.city,Venue.state).all()
+  for area in areas:   
+    venues_by_area = db.session.query(Venue.id,Venue.name).filter(Venue.city==area.city,Venue.state==area.state).all()
+    area_venues = []
+    for venue in venues_by_area: 
+      num_upcoming_shows = db.session.query(Show).filter(Show.venue_id == venue.id, Show.start_time > current_time).count()
+      area_venues.append({
+            "id": venue.id,
+            "name": venue.name,
+            "num_upcoming_shows":num_upcoming_shows
+      })
 
-  data=[{
-    "city": "San Francisco",
-    "state": "CA",
-    "venues": [{
-      "id": 1,
-      "name": "The Musical Hop",
-      "num_upcoming_shows": 0,
-    }, {
-      "id": 3,
-      "name": "Park Square Live Music & Coffee",
-      "num_upcoming_shows": 1,
-    }]
-  }, {
-    "city": "New York",
-    "state": "NY",
-    "venues": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
-  }]
+    new_area = {
+        "city": area.city,
+        "state": area.state,
+        "venues": area_venues
+    }
+    data.append(new_area) 
+
+  print(data)
   return render_template('pages/venues.html', areas=data);
 
 @app.route('/venues/search', methods=['POST'])
@@ -248,7 +248,7 @@ def create_venue_submission():
   error = False
   try:
     # create new Venue object with recived values
-    newVenue = Venue(
+    new_venue_row = Venue(
         name = request.form.get('name'),
         city = request.form.get('city'),
         state = request.form.get('state'), 
@@ -259,7 +259,7 @@ def create_venue_submission():
         website  = request.form.get('website'),
         image_link = request.form.get('image_link')
         )    
-    db.session.add(newVenue)
+    db.session.add(new_venue_row)
     
     db.session.commit()
   except:
@@ -284,24 +284,24 @@ def create_venue_submission():
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
 
-  editVenue = Venue.query.get(venue_id)
-  if editVenue is None:
+  edit_venue_row = Venue.query.get(venue_id)
+  if edit_venue_row is None:
     abort(404, description="Venue data not found")
   
   # populate form with values from venue with ID <venue_id>
   form = VenueForm()
-  form.name.data = editVenue.name
-  form.city.data = editVenue.city
-  form.state.data = editVenue.state  
-  form.address.data = editVenue.address
-  form.phone.data = editVenue.phone
-  form.genres.data = editVenue.genres 
-  form.facebook_link.data = editVenue.facebook_link
-  form.website.data = editVenue.website
-  form.image_link.data = editVenue.image_link
+  form.name.data = edit_venue_row.name
+  form.city.data = edit_venue_row.city
+  form.state.data = edit_venue_row.state  
+  form.address.data = edit_venue_row.address
+  form.phone.data = edit_venue_row.phone
+  form.genres.data = edit_venue_row.genres 
+  form.facebook_link.data = edit_venue_row.facebook_link
+  form.website.data = edit_venue_row.website
+  form.image_link.data = edit_venue_row.image_link
   
   venue={
-    "id": editVenue.id
+    "id": edit_venue_row.id
   }  
   return render_template('forms/edit_venue.html', form=form, venue=venue)
 
@@ -311,18 +311,18 @@ def edit_venue_submission(venue_id):
   # venue record with ID <venue_id> using the new attributes
   error = False
   try:
-    editVenue = Venue.query.get(venue_id)
+    edit_venue_row = Venue.query.get(venue_id)
 
     # update existing Venue with recived values
-    editVenue.name = request.form.get('name')    
-    editVenue.city = request.form.get('city')
-    editVenue.state = request.form.get('state')
-    editVenue.address = request.form.get('address')    
-    editVenue.phone = request.form.get('phone')
-    editVenue.genres = request.form.getlist('genres')    
-    editVenue.facebook_link = request.form.get('facebook_link')
-    editVenue.website = request.form.get('website')
-    editVenue.image_link = request.form.get('image_link') 
+    edit_venue_row.name = request.form.get('name')    
+    edit_venue_row.city = request.form.get('city')
+    edit_venue_row.state = request.form.get('state')
+    edit_venue_row.address = request.form.get('address')    
+    edit_venue_row.phone = request.form.get('phone')
+    edit_venue_row.genres = request.form.getlist('genres')    
+    edit_venue_row.facebook_link = request.form.get('facebook_link')
+    edit_venue_row.website = request.form.get('website')
+    edit_venue_row.image_link = request.form.get('image_link') 
 
     db.session.commit()
   except:
@@ -349,10 +349,10 @@ def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
   error = False
-  deleteVenue = Venue.query.get(venue_id)
-  venue_name = deleteVenue.name
+  delete_venue_row = Venue.query.get(venue_id)
+  venue_name = delete_venue_row.name
   try:
-    db.session.delete(deleteVenue)
+    db.session.delete(delete_venue_row)
     # db.session.commit()   
   except:
     db.session.rollback()
@@ -499,7 +499,7 @@ def create_artist_submission():
   error = False
   try:
     # create new Artist object with recived values
-    newArtist = Artist(
+    new_artist_row = Artist(
         name = request.form.get('name'),
         city = request.form.get('city'),
         state = request.form.get('state'), 
@@ -509,7 +509,7 @@ def create_artist_submission():
         website  = request.form.get('website'),
         image_link = request.form.get('image_link')
         )    
-    db.session.add(newArtist)    
+    db.session.add(new_artist_row)    
     db.session.commit()
   except:
     db.session.rollback()
@@ -531,23 +531,23 @@ def create_artist_submission():
 #  ----------------------------------------------------------------
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
-  editArtist = Artist.query.get(artist_id)
-  if editArtist is None:
+  edit_artist_row = Artist.query.get(artist_id)
+  if edit_artist_row is None:
     abort(404, description="Artist data not found")
   
   # populate form with values from artist with ID <artist_id>
   form = ArtistForm()
-  form.name.data = editArtist.name
-  form.city.data = editArtist.city
-  form.state.data = editArtist.state  
-  form.phone.data = editArtist.phone
-  form.genres.data = editArtist.genres 
-  form.facebook_link.data = editArtist.facebook_link
-  form.website.data = editArtist.website
-  form.image_link.data = editArtist.image_link
+  form.name.data = edit_artist_row.name
+  form.city.data = edit_artist_row.city
+  form.state.data = edit_artist_row.state  
+  form.phone.data = edit_artist_row.phone
+  form.genres.data = edit_artist_row.genres 
+  form.facebook_link.data = edit_artist_row.facebook_link
+  form.website.data = edit_artist_row.website
+  form.image_link.data = edit_artist_row.image_link
   
   artist={
-    "id": editArtist.id
+    "id": edit_artist_row.id
   }  
   return render_template('forms/edit_artist.html', form=form, artist=artist)
 
@@ -557,17 +557,17 @@ def edit_artist_submission(artist_id):
   # artist record with ID <artist_id> using the new attributes
   error = False
   try:
-    editArtist = Artist.query.get(artist_id)
+    edit_artist_row = Artist.query.get(artist_id)
 
     # update existing Artist with recived values
-    editArtist.name = request.form.get('name')    
-    editArtist.city = request.form.get('city')
-    editArtist.state = request.form.get('state') 
-    editArtist.phone = request.form.get('phone')
-    editArtist.genres = request.form.getlist('genres')    
-    editArtist.facebook_link = request.form.get('facebook_link')
-    editArtist.website = request.form.get('website')
-    editArtist.image_link = request.form.get('image_link') 
+    edit_artist_row.name = request.form.get('name')    
+    edit_artist_row.city = request.form.get('city')
+    edit_artist_row.state = request.form.get('state') 
+    edit_artist_row.phone = request.form.get('phone')
+    edit_artist_row.genres = request.form.getlist('genres')    
+    edit_artist_row.facebook_link = request.form.get('facebook_link')
+    edit_artist_row.website = request.form.get('website')
+    edit_artist_row.image_link = request.form.get('image_link') 
 
     db.session.commit()
   except:
@@ -592,10 +592,10 @@ def edit_artist_submission(artist_id):
 @app.route('/artists/<artist_id>', methods=['DELETE'])
 def delete_artist(artist_id):
   error = False
-  deleteArtist = Artist.query.get(artist_id)
-  artist_name = deleteArtist.name
+  delete_artist_row = Artist.query.get(artist_id)
+  artist_name = delete_artist_row.name
   try:
-    db.session.delete(deleteArtist)
+    db.session.delete(delete_artist_row)
     db.session.commit()   
   except:
     db.session.rollback()
@@ -621,42 +621,57 @@ def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "venue_id": 1,
-    "venue_name": "The Musical Hop",
-    "artist_id": 4,
-    "artist_name": "Guns N Petals",
-    "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-    "start_time": "2019-05-21T21:30:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 5,
-    "artist_name": "Matt Quevedo",
-    "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-    "start_time": "2019-06-15T23:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-01T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-08T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-15T20:00:00.000Z"
-  }]
+  # data=[{
+  #   "venue_id": 1,
+  #   "venue_name": "The Musical Hop",
+  #   "artist_id": 4,
+  #   "artist_name": "Guns N Petals",
+  #   "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
+  #   "start_time": "2019-05-21T21:30:00.000Z"
+  # }, {
+  #   "venue_id": 3,
+  #   "venue_name": "Park Square Live Music & Coffee",
+  #   "artist_id": 5,
+  #   "artist_name": "Matt Quevedo",
+  #   "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
+  #   "start_time": "2019-06-15T23:00:00.000Z"
+  # }, {
+  #   "venue_id": 3,
+  #   "venue_name": "Park Square Live Music & Coffee",
+  #   "artist_id": 6,
+  #   "artist_name": "The Wild Sax Band",
+  #   "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
+  #   "start_time": "2035-04-01T20:00:00.000Z"
+  # }, {
+  #   "venue_id": 3,
+  #   "venue_name": "Park Square Live Music & Coffee",
+  #   "artist_id": 6,
+  #   "artist_name": "The Wild Sax Band",
+  #   "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
+  #   "start_time": "2035-04-08T20:00:00.000Z"
+  # }, {
+  #   "venue_id": 3,
+  #   "venue_name": "Park Square Live Music & Coffee",
+  #   "artist_id": 6,
+  #   "artist_name": "The Wild Sax Band",
+  #   "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
+  #   "start_time": "2035-04-15T20:00:00.000Z"
+  # }]
+
+  data = []
+  current_time = datetime.now()
+  upcoming_shows = db.session.query(Show).filter(
+      Show.start_time > current_time).all()
+  for show in upcoming_shows:
+     data.append({
+      "venue_id": show.venue_id,
+      "venue_name": show.venue.name,
+      "artist_id": show.artist_id,
+      "artist_name": show.artist.name,
+      "artist_image_link": show.artist.image_link,
+      "start_time": str(show.start_time)
+      })
+
   return render_template('pages/shows.html', shows=data)
 
 #  Create Show
@@ -673,28 +688,40 @@ def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
   error = False
-  try:
-    # create new Show object with recived values
-    newShow = Show(
-        artist_id = request.form.get('artist_id'),
-        venue_id = request.form.get('venue_id'),        
-        start_time = request.form.get('start_time')
-        )    
-    db.session.add(newShow)    
-    db.session.commit()
-  except:
-    db.session.rollback()
-    error = True
-    print(sys.exc_info())   
-  finally:
-    db.session.close()
 
-  if error:
-    # on unsuccessful db insert, flash an error instead.
-    flash('An error occurred. Show ' + request.form.get('start_time') + ' could not be listed.')  
+  venue_id = request.form.get('venue_id'), 
+  venue_row = Venue.query.get(venue_id)
+  venue_name = venue_row.name
+
+  artist_id = request.form.get('artist_id'),
+  artist_row = Artist.query.get(artist_id)
+
+  if not(venue_row is None or artist_row is None):
+    try: 
+      # create new Show object with recived values
+      new_show_row = Show(
+          artist_id = artist_id,
+          venue_id = venue_id,        
+          start_time = request.form.get('start_time')
+          )    
+      db.session.add(new_show_row)    
+      db.session.commit()
+    except:
+      db.session.rollback()
+      error = True
+      print(sys.exc_info())   
+    finally:
+      db.session.close()
+      
+    if error:
+      # on unsuccessful db insert, flash an error instead.
+      flash('An error occurred. Show ' + venue_name + ' at ' + request.form.get('start_time') + ' could not be listed.')  
+    else:
+      # on successful db insert, flash success
+      flash('Show ' + venue_name + ' at ' + request.form.get('start_time') + ' was successfully listed!')  
+
   else:
-    # on successful db insert, flash success
-    flash('Show ' + request.form.get('start_time') + ' was successfully listed!')
+    flash('Venue id or Artist id not found ')  
     
   return render_template('pages/home.html')
 
