@@ -72,5 +72,21 @@
 	</div>
 </section>
 
+
+<button data-id='{{ artist.id }}' data-name='{{ artist.name }}'  onclick='removeArtist(event)' class="btn btn-danger btn-block btn-lg">
+	<i class="fa fa-trash"></i>
+	Remove Artist</button>
+<script>
+	function removeArtist(event) {	
+		const artist_id = event.target.dataset['id'];
+		const artist_name = event.target.dataset['name'];	
+		if(confirm('Are you sure to remove ' + artist_name)){
+			fetch('/artists/' + artist_id, {method: 'DELETE'}).then(function(){
+				window.location='/artists';
+			});
+		}
+	}
+</script>
+
 {% endblock %}
 

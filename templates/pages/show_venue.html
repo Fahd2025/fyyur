@@ -75,5 +75,19 @@
 	</div>
 </section>
 
+<button data-id='{{ venue.id }}' data-name='{{ venue.name }}'  onclick='removeVenue(event)' class="btn btn-danger btn-block btn-lg">
+	<i class="fa fa-trash"></i>
+	Remove Venue</button>
+<script>
+	function removeVenue(event) {	
+		const venue_id = event.target.dataset['id'];
+		const venue_name = event.target.dataset['name'];	
+		if(confirm('Are you sure to remove ' + venue_name)){
+			fetch('/venues/' + venue_id, {method: 'DELETE'}).then(function(){
+				window.location='/venues';
+			});
+		}
+	}
+</script>
 {% endblock %}
 
