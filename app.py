@@ -7,13 +7,13 @@ import dateutil.parser
 import babel
 from flask import Flask, render_template, request, Response, flash, redirect, url_for, abort
 from flask_moment import Moment
-from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import logging
 import sys
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
+from models import db, Venue, Artist, Show
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -21,64 +21,11 @@ from forms import *
 app = Flask(__name__)
 moment = Moment(app)
 app.config.from_object('config')
-db = SQLAlchemy(app)
+db.init_app(app)
 
 # connect to a local postgresql database
 
 migrate = Migrate(app,db)
-
-#----------------------------------------------------------------------------#
-# Models.
-#----------------------------------------------------------------------------#
-
-class Venue(db.Model):
-    __tablename__ = 'Venue'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    address = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate  
-    genres = db.Column(db.String(120))
-    website = db.Column(db.String(120))
-
-    seeking_talent = db.Column(db.Boolean,default=False)
-    seeking_description = db.Column(db.String(500))   
-    shows = db.relationship('Show',backref='venue',lazy=True, cascade="delete")    
-
-class Artist(db.Model):
-    __tablename__ = 'Artist'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String)
-    city = db.Column(db.String(120))
-    state = db.Column(db.String(120))
-    phone = db.Column(db.String(120))
-    genres = db.Column(db.String(120))
-    image_link = db.Column(db.String(500))
-    facebook_link = db.Column(db.String(120))
-
-     # TODO: implement any missing fields, as a database migration using Flask-Migrate
-    website = db.Column(db.String(120))
-
-    seeking_venue = db.Column(db.Boolean,default=False)
-    seeking_description = db.Column(db.String(500))
-    shows = db.relationship('Show',backref='artist',lazy=True, cascade="delete")
-
-# TODO Implement Show and Artist models, and complete all model relationships and properties, as a database migration.
-
-class Show(db.Model):
-    __tablename__ = 'Show'
-
-    id = db.Column(db.Integer, primary_key=True)   
-    artist_id = db.Column(db.Integer,db.ForeignKey('Artist.id'),nullable=False)
-    venue_id = db.Column(db.Integer,db.ForeignKey('Venue.id'),nullable=False)   
-    start_time = db.Column(db.DateTime, nullable=False)
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -121,7 +68,8 @@ def venues():
     venues_by_area = db.session.query(Venue.id,Venue.name).filter(Venue.city==area.city,Venue.state==area.state).all()
     area_venues = []
     for venue in venues_by_area: 
-      num_upcoming_shows = db.session.query(Show).filter(Show.venue_id == venue.id, Show.start_time > datetime.now()).count()
+      num_upcoming_shows = db.session.query(Show).join(Venue).filter(Show.venue_id == venue.id, Show.start_time > datetime.now()).count()
+
       area_venues.append({
             "id": venue.id,
             "name": venue.name,
@@ -136,7 +84,7 @@ def venues():
     
     data.append(new_area) 
     
-  return render_template('pages/venues.html', areas=data);
+  return render_template('pages/venues.html', areas=data)
 
 @app.route('/venues/search', methods=['POST'])
 def search_venues():
@@ -149,7 +97,7 @@ def search_venues():
   search_venues = db.session.query(Venue).filter(Venue.name.ilike('%' + search_term + '%')).all()  
   print('search_venues = ', search_venues)
   for venue in search_venues:   
-    num_upcoming_shows = db.session.query(Show).filter(Show.venue_id == venue.id, Show.start_time > datetime.now()).count()
+    num_upcoming_shows = db.session.query(Show).join(Venue).filter(Show.venue_id == venue.id, Show.start_time > datetime.now()).count()
     data.append({
         "id": venue.id,
         "name": venue.name,
@@ -171,7 +119,7 @@ def show_venue(venue_id):
   if venue_row is None:
     abort(404, description="Venue data not found")
     
-  venue_shows = db.session.query(Show).filter(Show.venue_id == venue_id).all() 
+  venue_shows = db.session.query(Show).join(Venue).filter(Show.venue_id == venue_id).all() 
 
   past_shows= []
   for show in list(filter(lambda s: s.start_time < datetime.now(), venue_shows)):
@@ -223,6 +171,13 @@ def create_venue_form():
 def create_venue_submission():
   # TODO: insert form data as a new Venue record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
+
+  form = VenueForm()
+    
+  if not form.validate():
+      flash( form.errors )
+      return redirect(url_for('create_venue_submission', form=form))
+
   error = False
   try:
     # create new Venue object with recived values
@@ -236,7 +191,7 @@ def create_venue_submission():
         facebook_link = request.form.get('facebook_link'),
         website  = request.form.get('website'),
         image_link = request.form.get('image_link')
-        )    
+        ) 
     db.session.add(new_venue_row)
     
     db.session.commit()
@@ -254,7 +209,7 @@ def create_venue_submission():
     # on successful db insert, flash success
     flash('Venue ' + request.form.get('name') + ' was successfully listed!')
     
-  return render_template('pages/home.html')
+  return redirect(url_for('venues'))
 
 #  Update Venue
 #  ----------------------------------------------------------------  
@@ -287,6 +242,13 @@ def edit_venue(venue_id):
 def edit_venue_submission(venue_id):
   # TODO: take values from the form submitted, and update existing
   # venue record with ID <venue_id> using the new attributes
+
+  form = VenueForm()
+    
+  if not form.validate():
+      flash( form.errors )
+      return redirect(url_for('edit_venue_submission',venue_id=venue_id,form=form))
+
   error = False
   try:
     edit_venue_row = Venue.query.get(venue_id)
@@ -391,7 +353,7 @@ def show_artist(artist_id):
   if artist_row is None:
     abort(404, description="Artist data not found")
     
-  artist_shows = db.session.query(Show).filter(Show.artist_id == artist_id).all() 
+  artist_shows = db.session.query(Show).join(Artist).filter(Show.artist_id == artist_id).all() 
 
   past_shows= []
   for show in list(filter(lambda s: s.start_time < datetime.now(), artist_shows)):
@@ -445,6 +407,13 @@ def create_artist_submission():
   # TODO: insert form data as a new Artist record in the db, instead
   # TODO: modify data to be the data object returned from db insertion
   error = False
+
+  form = ArtistForm()
+    
+  if not form.validate():
+      flash( form.errors )
+      return redirect(url_for('create_artist_submission',form=form))
+
   try:
     # create new Artist object with recived values
     new_artist_row = Artist(
@@ -473,7 +442,7 @@ def create_artist_submission():
     # on successful db insert, flash success
     flash('Artist ' + request.form.get('name') + ' was successfully listed!')
     
-  return render_template('pages/home.html')
+  return redirect(url_for('artists'))
 
 #  Update Artist
 #  ----------------------------------------------------------------
@@ -503,6 +472,13 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
+
+  form = ArtistForm()
+    
+  if not form.validate():
+      flash( form.errors )
+      return redirect(url_for('edit_artist_submission',artist_id=artist_id,form=form))
+
   error = False
   try:
     edit_artist_row = Artist.query.get(artist_id)
@@ -635,7 +611,7 @@ def create_show_submission():
   else:
     flash('Venue id or Artist id not found ')  
     
-  return render_template('pages/home.html')
+  return redirect(url_for('shows'))
 
 #  Seed inital data 
 #  ----------------------------------------------------------------
